@@ -2,6 +2,8 @@ from gensim.models import KeyedVectors
 from re import split, findall
 from numpy import ndarray, array
 from random import randint
+from os import listdir
+from os.path import join
 
 class Word:
     # Initialize with a string and trained word2vec model
@@ -32,7 +34,7 @@ class Article:
         self.vector = None
         
     def get_vector(self, w2vm):
-        print('Creating vector representation for entire article...')
+        # print('Creating vector representation for entire article...')
         total = ndarray((1, 300), buffer=array([0 for i in range(0, 300)]))
         for word in self.words:
             vector = word.vector
@@ -49,7 +51,7 @@ class UnseenArticle(Article):
     
     # Function to get a list of words
     def __get_words(self, w2vm):
-        print('Collecting words from article and generating vectors...')
+        # print('Collecting words from article and generating vectors...')
         words = []
         with open(self.path, 'r') as i:
             for string in findall(super().WORD_REGEX, i.read()):
@@ -71,7 +73,7 @@ class TrainingArticle(Article):
         
     # Function to get a list of words
     def __get_words(self, w2vm):
-        print('Collecting words from article and generating vectors...')
+        # print('Collecting words from %s and generating vectors...' % self.path)
         words = []
         with open(self.path, 'r') as i:
             body_text = ''.join(i.readlines()[2:])
@@ -87,64 +89,98 @@ class TrainingArticle(Article):
     # Function to get a word2vec representation for the article
     def __get_vector(self, w2vm):
         return super().get_vector(w2vm)
-        
+
 class Classifier:
 
-    # Initialize with path to either save to or load from (depending on subclass)
-    def __init__(self, path):
-        self.path = path
+    # Initialize with input path or output path
+    def __init__(self, in_path=None, out_path=None):
+        self.in_path = in_path
+        self.out_path = out_path
         self.model = None
+        
+    # Load a model from the input path
+    def load(self):
+        raise Exception
+      
+    # Create a model from a directory of articles, save to output path  
+    def create_from(self, directory, w2vm):
+        raise Exception
+        
+    # Generate a list of TrainingArticles from a directory of files
+    def get_training_articles_from(self, directory, w2vm):
+        for path in [join(directory, name) for name in listdir(directory)]:
+            yield TrainingArticle(path, w2vm)
         
 class W2VClassifier(Classifier):
 
-    # Initialize with path to load pre-trained model from
-    def __init__(self, path):
-        super().__init__(path)
-        self.model = self.__load()
-    
-    # Load the pre-trained model from the supplied path
-    def __load(self):
-        print('Loading pre-trained word2vec model (this may take a couple of minutes)')
-        return KeyedVectors.load_word2vec_format(self.path, binary=True)
+    # Initialize with an input path
+    def __init__(self, in_path=None):
+        super().__init__(in_path=in_path)
         
-# TODO develop
-
+    # Load a word2vec model from the input path
+    def load(self):
+        print('Loading pre-trained word2vec model (this may take a couple of minutes)...')
+        self.model = KeyedVectors.load_word2vec_format(self.in_path, binary=True)
+        
 class BiasClassifier(Classifier):
-    
-    # Initialize with path to export pickle to and a directory of TrainingArticles
-    def __init__(self, path, directory):
-        super().__init__(path)
-        self.model = self.__create(directory)
-        
-    # Create a BiasClassifier using a directory of text files (TrainingArticles)
-    def __create(self, directory):
-        pass
-       
-# TODO develop
 
+    # Convert bias string to integer for use in matrix
+    SCALE = {
+        'extreme_left': 0,
+        'left': 1,
+        'left_center': 2,
+        'least_biased': 3,
+        'right_center': 4,
+        'right': 5,
+        'extreme_right': 6
+    }
+
+    # Initialize with an input path or output path
+    def __init__(self, in_path=None, out_path=None):
+        super().__init__(in_path=in_path, out_path=out_path)
+        
+    # Load an existing model from the input path, set self.model
+    def load(self): # TODO
+        pass
+        
+    # Create a new model from the directory of articles and word2vec model,
+    # save the new model to the output path
+    def create_from(self, directory, w2vm): # TODO
+        articles = super().get_training_articles_from(directory, w2vm)
+        for article in articles:
+            # use article.vector and article.bias to create vector
+            print(self.SCALE[article.bias])
+    
 class FactualnessClassifier(Classifier):
 
-    # Initialize with path to export pickle to and a directory of TrainingArticles
-    def __init__(self, path, directory):
-        super().__init__(path)
-        self.model = self.__create(directory)
-    
-    # Create a BiasClassifier using a directory of text files (TrainingArticles)
-    def __create(self, directory):
-         pass
+    # Convert factualness string to integer for use in matrix
+    SCALE = {
+        'very_low': 0,
+        'low': 1,
+        'mixed': 2,
+        'mostly_factual': 3,
+        'high': 4,
+        'very_high': 5
+    }
 
-def main():
-#     print('Loading word2vec model (this may take a minute or two)...')
-#     w2vm = None #KeyedVectors.load_word2vec_format('classifiers/google_news', binary=True)
-#     article = Article('articles/eg_text.txt', w2vm)
-#     print(article.vector)
+    # Initialize with an input path or output path
+    def __init__(self, in_path=None, out_path=None):
+        super().__init__(in_path=in_path, out_path=out_path)
+        
+    # Load an existing model from the input path, set self.model
+    def load(self): # TODO
+        pass
+        
+    # Create a new model from the directory of articles and word2vec model,
+    # save the new model to the output path
+    def create_from(self, directory, w2vm): # TODO
+        articles = super().get_training_articles_from(directory, w2vm)
+        for article in articles:
+            # use article.vector and article.factualness to create vector
+            print(self.SCALE[article.factualness])
 
-#     article = TrainingArticle('articles/training_text.txt', None)
-#     print(article.vector)
-
-#     m = W2VClassifier('classifiers/google_news')
-
-    c1 = BiasClassifier('example.classifier', 'eg_dir/')
-    c2 = FactualnessClassifier('example.classifier', 'eg_dir/')
+def main():    
+    c = FactualnessClassifier(out_path='test.model')
+    c.create_from('articles', 'model')
     
 main()
