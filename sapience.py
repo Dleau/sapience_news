@@ -8,7 +8,6 @@ from pandas import DataFrame
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn import metrics
-import seaborn as sn
 from pickle import load, dump
 
 class Word:
