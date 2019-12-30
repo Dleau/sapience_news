@@ -28,16 +28,16 @@ class Word:
         '''
         # This will generate a random 1x300 matrix, very useful in testing
         return ndarray((1, 300), buffer=array([float(randint(0.0, 5.0)) for i in range(0, 300)]))
-        
+
 class Article:
     # Regular expression used to find words in sentences
     WORD_REGEX = "[^a-zA-Z]*([a-zA-Z']+)[^a-zA-Z]*"
-    
+
     def __init__(self, path):
         self.path = path
         self.words = None
         self.vector = None
-        
+
     def get_vector(self, w2vm):
         # print('Creating vector representation for entire article...')
         total = ndarray((1, 300), buffer=array([0 for i in range(0, 300)]))
@@ -53,7 +53,7 @@ class UnseenArticle(Article):
         super().__init__(path)
         self.words = self.__get_words(w2vm)
         self.vector = self.__get_vector(w2vm)
-    
+
     # Function to get a list of words
     def __get_words(self, w2vm):
         # print('Collecting words from article and generating vectors...')
@@ -66,7 +66,7 @@ class UnseenArticle(Article):
     # Function to get a word2vec representation for the article
     def __get_vector(self, w2vm):
         return super().get_vector(w2vm)
-        
+
 class TrainingArticle(Article):
     # Initialize with path to text file and trained word2vec model
     def __init__(self, path, w2vm):
@@ -75,7 +75,7 @@ class TrainingArticle(Article):
         self.__header = self.__get_header()
         self.source, self.bias, self.factualness, self.country = self.__header.split(', ')
         self.vector = self.__get_vector(w2vm)
-        
+
     # Function to get a list of words
     def __get_words(self, w2vm):
         # print('Collecting words from %s and generating vectors...' % self.path)
@@ -85,12 +85,12 @@ class TrainingArticle(Article):
             for string in findall(super().WORD_REGEX, body_text):
                 words.append(Word(string.lower(), w2vm))
         return words
-        
+
     # Function to get training header
     def __get_header(self):
         with open(self.path, 'r') as i:
             return i.readlines()[0].strip()
-            
+
     # Function to get a word2vec representation for the article
     def __get_vector(self, w2vm):
         return super().get_vector(w2vm)
@@ -103,11 +103,11 @@ class Classifier:
         self.out_path = out_path
         self.model = None
         self.accuracy = None
-        
+
     # Load a model from the input path
     def load(self):
         self.model, self.accuracy = load(open(self.in_path, 'rb'))
-              
+
     # Create a random forest classifier from a directory of article vectorization data
     def create(self, directory, w2vm):
         dict = self.create_dictionary(directory, w2vm)
@@ -121,27 +121,24 @@ class Classifier:
         self.model = model
         self.accuracy = metrics.accuracy_score(y_test, model.predict(x_test))
         dump((self.model, self.accuracy), open(self.out_path, 'wb'))
-        
+
     # Generate a list of TrainingArticles from a directory of files
     def get_training_articles_from(self, directory, w2vm):
         for path in [join(directory, name) for name in listdir(directory)]:
             yield TrainingArticle(path, w2vm)
-            
+
     # Empty method for creation of dictionary
     def create_dictionary(self, directory, w2vm):
         raise Exception
-        
+
 class W2VClassifier(Classifier):
 
     # Initialize with an input path
     def __init__(self, in_path=None):
         super().__init__(in_path=in_path)
-        
-    # Load a word2vec model from the input path
-    def load(self):
         print('Loading pre-trained word2vec model (this may take a couple of minutes)...')
         self.model = KeyedVectors.load_word2vec_format(self.in_path, binary=True)
-        
+
 class BiasClassifier(Classifier):
 
     # Convert bias string to integer for use in matrix
@@ -158,7 +155,7 @@ class BiasClassifier(Classifier):
     # Initialize with an input path or output path
     def __init__(self, in_path=None, out_path=None):
         super().__init__(in_path=in_path, out_path=out_path)
-        
+
     # Create a dictionary of article vectorization data
     def create_dictionary(self, directory, w2vm):
         dict = {**{str(i): [] for i in range(0, 300)}, **{'bias': []}}
@@ -169,7 +166,7 @@ class BiasClassifier(Classifier):
                 dict[str(i)].append(round(element, 3)) # TODO look into rounding
             dict['bias'].append(vector[-1])
         return dict
-    
+
 class FactualnessClassifier(Classifier):
 
     # Convert factualness string to integer for use in matrix
@@ -185,7 +182,7 @@ class FactualnessClassifier(Classifier):
     # Initialize with an input path or output path
     def __init__(self, in_path=None, out_path=None):
         super().__init__(in_path=in_path, out_path=out_path)
-        
+
     # Create a dictionary of article vectorization data
     def create_dictionary(self, directory, w2vm):
         dict = {**{str(i): [] for i in range(0, 300)}, **{'factualness': []}}
@@ -197,10 +194,10 @@ class FactualnessClassifier(Classifier):
             dict['factualness'].append(vector[-1])
         return dict
 
-def main():    
+def main():
+    w2vm = None #W2VClassifier(in_path='classifiers/google_news')
     c = FactualnessClassifier(out_path='./test.model')
-    # c.load()
-    c.create(directory='articles/', w2vm=None)
+    c.create(directory='articles/', w2vm=w2vm)
     print(c.model)
-    
+
 main()
