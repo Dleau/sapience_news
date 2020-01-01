@@ -98,6 +98,13 @@ class TrainingArticle(Article):
     def __get_vector(self, w2vm):
         return super().get_vector(w2vm)
 
+class W2VClassifier:
+
+    # Initialize with an input path
+    def __init__(self, in_path):
+        print('Loading pre-trained word2vec model (this may take a couple of minutes)...')
+        self.model = KeyedVectors.load_word2vec_format(in_path, binary=True)
+
 class Classifier:
 
     # Initialize with input path or output path
@@ -143,13 +150,6 @@ class Classifier:
     # Empty method for creation of dictionary
     def create_dictionary(self, directory, w2vm):
         raise Exception
-
-class W2VClassifier:
-
-    # Initialize with an input path
-    def __init__(self, in_path):
-        print('Loading pre-trained word2vec model (this may take a couple of minutes)...')
-        self.model = KeyedVectors.load_word2vec_format(in_path, binary=True)
 
 class BiasClassifier(Classifier):
 
