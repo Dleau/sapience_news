@@ -9,6 +9,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn import metrics
 from pickle import load, dump
+from sys import exit
 
 class Word:
     # Initialize with a string and trained word2vec model
@@ -39,7 +40,7 @@ class Article:
         self.vector = None
 
     def get_vector(self, w2vm):
-        # print('Creating vector representation for entire article...')
+        print('Representing article %s as a vector' % self.path)
         total = ndarray((1, 300), buffer=array([0 for i in range(0, 300)]))
         for word in self.words:
             vector = word.vector
@@ -56,11 +57,12 @@ class UnseenArticle(Article):
 
     # Function to get a list of words
     def __get_words(self, w2vm):
-        # print('Collecting words from article and generating vectors...')
+        print('Identifying words in unseen article %s' % self.path)
         words = []
         with open(self.path, 'r') as i:
             for string in findall(super().WORD_REGEX, i.read()):
                 words.append(Word(string.lower(), w2vm))
+        print('Identifying words in %s' % self.path)
         return words
 
     # Function to get a word2vec representation for the article
@@ -78,12 +80,13 @@ class TrainingArticle(Article):
 
     # Function to get a list of words
     def __get_words(self, w2vm):
-        # print('Collecting words from %s and generating vectors...' % self.path)
+        print('Identifying words in training article %s' % self.path)
         words = []
         with open(self.path, 'r') as i:
             body_text = ''.join(i.readlines()[2:])
             for string in findall(super().WORD_REGEX, body_text):
                 words.append(Word(string.lower(), w2vm))
+        print('%d words were identified' % len(words))
         return words
 
     # Function to get training header
@@ -102,25 +105,35 @@ class Classifier:
         self.in_path = in_path
         self.out_path = out_path
         self.model = None
-        self.accuracy = None
+        self.confidence = None
 
     # Load a model from the input path
     def load(self):
-        self.model, self.accuracy = load(open(self.in_path, 'rb'))
+        if not self.in_path:
+            print('Cancelling classifier load; provide an input path during initialization')
+            exit(0)
+        print('Loading random forest classifier from %s' % self.in_path)
+        self.model, self.confidence = load(open(self.in_path, 'rb'))
 
     # Create a random forest classifier from a directory of article vectorization data
     def create(self, directory, w2vm):
+        if not self.out_path:
+            print('Cancelling classifier creation; provide an output path during initialization')
+            exit(0)
+        print('Creating random forest classifier from training articles in %s' % directory)
         dict = self.create_dictionary(directory, w2vm)
         columns = list(dict.keys())
         frame = DataFrame(dict, columns=columns)
+        print('Data frame:')
         print(frame)
         x, y = frame[columns[:-1]], frame[columns[-1]]
         x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.25, random_state=0)
         model = RandomForestClassifier(n_estimators=100)
         model.fit(x_train, y_train)
         self.model = model
-        self.accuracy = metrics.accuracy_score(y_test, model.predict(x_test))
-        dump((self.model, self.accuracy), open(self.out_path, 'wb'))
+        self.confidence = metrics.accuracy_score(y_test, model.predict(x_test))
+        print('Saving classifier to %s' % self.out_path)
+        dump((self.model, self.confidence), open(self.out_path, 'wb'))
 
     # Generate a list of TrainingArticles from a directory of files
     def get_training_articles_from(self, directory, w2vm):
@@ -131,13 +144,12 @@ class Classifier:
     def create_dictionary(self, directory, w2vm):
         raise Exception
 
-class W2VClassifier(Classifier):
+class W2VClassifier:
 
     # Initialize with an input path
-    def __init__(self, in_path=None):
-        super().__init__(in_path=in_path)
+    def __init__(self, in_path):
         print('Loading pre-trained word2vec model (this may take a couple of minutes)...')
-        self.model = KeyedVectors.load_word2vec_format(self.in_path, binary=True)
+        self.model = KeyedVectors.load_word2vec_format(in_path, binary=True)
 
 class BiasClassifier(Classifier):
 
@@ -161,6 +173,7 @@ class BiasClassifier(Classifier):
         dict = {**{str(i): [] for i in range(0, 300)}, **{'bias': []}}
         articles = super().get_training_articles_from(directory, w2vm)
         for article in articles:
+            print('Mapping %s vectorization to dictionary' % article.path)
             vector = article.vector.tolist()[0] + [self.SCALE[article.bias]]
             for i, element in enumerate(vector[:-1]):
                 dict[str(i)].append(round(element, 3)) # TODO look into rounding
@@ -188,6 +201,7 @@ class FactualnessClassifier(Classifier):
         dict = {**{str(i): [] for i in range(0, 300)}, **{'factualness': []}}
         articles = super().get_training_articles_from(directory, w2vm)
         for article in articles:
+            print('Mapping %s vectorization to dictionary' % article.path)
             vector = article.vector.tolist()[0] + [self.SCALE[article.factualness]]
             for i, element in enumerate(vector[:-1]):
                 dict[str(i)].append(round(element, 3)) # TODO look into rounding
@@ -195,9 +209,21 @@ class FactualnessClassifier(Classifier):
         return dict
 
 def main():
-    w2vm = None #W2VClassifier(in_path='classifiers/google_news')
+
+    # Use this line for random vector generation (very fast, useful in testing)
+    w2vm = None
+    # Use this line for word2vec vector generation (slow, takes a few minutes)
+    # w2vm = W2VClassifier(in_path='classifiers/google_news')
+    
+    # e.g., Create a factualness classifier
+    # c = FactualnessClassifier(out_path='./test.model')
     c = FactualnessClassifier(out_path='./test.model')
     c.create(directory='articles/', w2vm=w2vm)
-    print(c.model)
+    
+    # e.g., Load a factualness classifier
+    # c = FactualnessClassifier(in_path='./test.model')
+    # c.load()
+    
+    print('Classifier confidence:', c.confidence)
 
 main()
