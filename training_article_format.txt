@@ -1,0 +1,34 @@
+On the first line of each training article .txt file, we want the following data:
+
+(news publication), bias, truthfulness, (country code) 
+
+Use the following constants to represent bias and truthfulness:
+
+bias = [extreme_left|left|left_center|least_biased|right_center|right|extreme_right]
+truthfulness = [very_low|low|mixed|mostly_factual|high|very_high]
+
+After the first line, we want a blank line. Then, we want the entire body of the training article.
+
+For example:
+
+=== beginning of .txt file ===
+New York Times, left_center, high, USA
+
+(Article text begins here)
+.
+.
+.
+=== end of .txt file ===
+
+Another example (CSV spacing needs to be consistent!):
+
+=== beginning of another .txt file ===
+Fox News, right, mixed, USA
+
+(Article text begins here)
+.
+.
+.
+=== end of another .txt file ===
+
+Obviously, there will be a one to one relationship between training articles and .txt files.
