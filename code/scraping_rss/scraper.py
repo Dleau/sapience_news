@@ -4,6 +4,8 @@ from time import sleep
 from os.path import exists
 from datetime import datetime
 
+# Objective: scrape an RSS news feed and write article titles, links, and sources to log
+
 class Scraper:
 
     TAP = 'https://news.google.com/news/rss'
@@ -13,23 +15,22 @@ class Scraper:
         self.links = set()
         
     def activate(self):
-        if self.log.already_exists:
+        if self.log.already_exists():
             print('This log exists, importing existing links\n')
             for link in self.log.get_existing_links():
                 self.links.add(link.strip())
         while True:
             additions = 0
-            print(self.links)
             for item in self.__get_items():
                 if item.link not in self.links:
-                    # self.log.write(item.title, item.link, item.source)
+                    self.log.write(item.title, item.link, item.source) # comment
                     self.links.add(item.link)
                     additions += 1
             print(datetime.now().time())
             print('Adding %d new articles to %s' % (additions, self.log.path))
             print('%d articles are on file' % len(self.links))
             print('Sleeping until next iteration\n')
-            sleep(5)
+            sleep(60)
         
     def __get_xml(self):
         with urlopen(self.TAP) as tap:
@@ -75,5 +76,5 @@ class Scraper:
                 log.write("%s\n%s\n%s\n\n" % (title, link, source))
             
         
-s = Scraper('/Users/dbordeleau/Desktop/sapience/scrapes/gnews_scape.2.txt')
+s = Scraper('/Users/dbordeleau/Desktop/sapience/scrapes/gnews_scrape.2.txt')
 s.activate()
