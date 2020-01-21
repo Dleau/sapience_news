@@ -1,9 +1,12 @@
 from re import findall
+from requests import get
+from bs4 import BeautifulSoup
+from os.path import join
 
 # Objective: label article plain text as retrieved from RSS scrape
 
 class RSSScrape:
-    
+
     def __init__(self, input):
         self.input = input
         self.sources = self.__sources()
@@ -24,15 +27,19 @@ class RSSScrape:
         self.mostly_factual = 0
         self.high = 0
         self.very_high = 0
-        
+
     def __sources(self):
         with open('../../database/sources.csv', 'r') as sources:
             return sources.read()
-            
+
     def __get_text_from(self, link):
         # TODO
-        pass
-        
+        text = ''
+        soup = BeautifulSoup(get(link).content, 'html.parser')
+        for paragraph in soup.find_all('p'):
+            text += paragraph.text + '\n'
+        return text
+
     def __tally(self, header):
         bias = header.split(',')[1]
         if bias == 'extreme_left':
@@ -62,7 +69,7 @@ class RSSScrape:
             self.high += 1
         elif factualness == 'very_high':
             self.very_high += 1
-            
+
     def __summarize(self):
         s = '\nKnown sources: %d\nUnknown sources %d\n\n' % (self.matched, self.unmatched)
         s += 'EL: %d\nL: %d\nLC: %d\nleast: %d\nRC: %d\nR %d\nER: %d\n\n' % (
@@ -71,7 +78,7 @@ class RSSScrape:
         s += 'EV: %d\nL: %d\nM: %d\nMF: %d\nH: %d\nVH %d\n' % (
             self.very_low, self.low, self.mixed, self.mostly_factual, self.high, self.very_high)
         print(s)
-        
+
     def send_training_articles_to(self, directory):
         # TODO output labeled articles
         with open(self.input, 'r') as input:
@@ -79,10 +86,16 @@ class RSSScrape:
             article_titles = lines[0::4]
             for i, title in enumerate(article_titles):
                 article_link = lines[4 * i + 1]
-                article_text = self.__get_text_from(article_link)
+
+                try:
+                    article_text = self.__get_text_from(article_link)
+                except:
+                    # continue if article text cannot be collected
+                    continue
+
                 article_source = str(lines[4 * i + 2]).split('/')[2].replace('www.', '')
                 source_matches = findall('%s[^\n]+\n' % article_source, self.sources)
-                if not source_matches: 
+                if not source_matches:
                     self.unmatched += 1
                     continue
                 self.matched += 1
@@ -91,7 +104,11 @@ class RSSScrape:
                 article_header = ','.join(header_split)
                 self.__tally(article_header)
                 print(i, article_header.strip())
+                with open(join(directory, 'ta.%d.txt' % i), 'w') as ta_out:
+                    ta_out.write(article_link + "\n")
+                    ta_out.write(article_header + "\n")
+                    ta_out.write(article_text)
         self.__summarize()
-            
-s = RSSScrape('../../scrapes/gnews_scrape.1.txt')
-s.send_training_articles_to(None)
+
+s = RSSScrape('../../scrapes/gnews_scrape.2.txt')
+s.send_training_articles_to('/Users/dbordeleau/Documents/development/git/sapience/ta')

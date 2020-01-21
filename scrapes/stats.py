@@ -24,4 +24,6 @@ temp = set()
 for source in sources:
     domain = '.'.join(source.split('.')[1:])
     if domain not in temp: temp.add(domain)
-print(len(temp))
+print('Unique sources', str(len(temp)))
+print('Titles', str(len(titles)))
+

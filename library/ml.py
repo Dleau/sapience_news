@@ -4,7 +4,7 @@ from numpy import ndarray, array
 from random import randint
 from os import listdir
 from os.path import join
-from pandas import DataFrame
+from pandas import DataFrame, set_option
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn import metrics
@@ -19,16 +19,17 @@ class Word:
 
     # Get a word2vec vector for this word, provided the loaded model
     def __get_vector(self, w2vm):
-        '''
         # Return the vector if the word is in the vocabulary
         if self.string in w2vm.model:
             return w2vm.model.word_vec(self.string)
         # Return None if the word is not in the vocabulary
         else:
             return None
-        '''
+
         # This will generate a random 1x300 matrix, very useful in testing
-        return ndarray((1, 300), buffer=array([float(randint(0.0, 5.0)) for i in range(0, 300)]))
+        #return ndarray((1, 300), buffer=array([float(randint(0.0, 5.0)) for i in range(0, 300)]))
+        #return ndarray((1, 300), buffer=array([(1.0) for i in range(0, 300)]))
+
 
 class Article:
     # Regular expression used to find words in sentences
@@ -75,7 +76,7 @@ class TrainingArticle(Article):
         super().__init__(path)
         self.words = self.__get_words(w2vm)
         self.__header = self.__get_header()
-        self.source, self.bias, self.factualness, self.country = self.__header.split(', ')
+        self.source, self.bias, self.factualness, self.country = self.__header.split(',')
         self.vector = self.__get_vector(w2vm)
 
     # Function to get a list of words
@@ -83,7 +84,7 @@ class TrainingArticle(Article):
         print('Identifying words in training article %s' % self.path)
         words = []
         with open(self.path, 'r') as i:
-            body_text = ''.join(i.readlines()[2:])
+            body_text = ''.join(i.readlines()[3:])
             for string in findall(super().WORD_REGEX, body_text):
                 words.append(Word(string.lower(), w2vm))
         print('%d words were identified' % len(words))
@@ -92,7 +93,7 @@ class TrainingArticle(Article):
     # Function to get training header
     def __get_header(self):
         with open(self.path, 'r') as i:
-            return i.readlines()[0].strip()
+            return i.readlines()[1].strip()
 
     # Function to get a word2vec representation for the article
     def __get_vector(self, w2vm):
@@ -131,6 +132,7 @@ class Classifier:
         dict = self.create_dictionary(directory, w2vm)
         columns = list(dict.keys())
         frame = DataFrame(dict, columns=columns)
+        # set_option('display.max_rows', None) # to print entire dataframe
         print('Data frame:')
         print(frame)
         x, y = frame[columns[:-1]], frame[columns[-1]]
@@ -174,9 +176,17 @@ class BiasClassifier(Classifier):
         articles = super().get_training_articles_from(directory, w2vm)
         for article in articles:
             print('Mapping %s vectorization to dictionary' % article.path)
+
+            if len(article.words) < 10: continue # TODO new line! get rid of NaN?
+
             vector = article.vector.tolist()[0] + [self.SCALE[article.bias]]
             for i, element in enumerate(vector[:-1]):
-                dict[str(i)].append(round(element, 3)) # TODO look into rounding
+                dict[str(i)].append(round(element, 2))
+                # TODO look into rounding
+                '''
+                round to 3 -> 0.63, n=298
+                round to 2 -> 0.64, n=298
+                '''
             dict['bias'].append(vector[-1])
         return dict
 
@@ -202,28 +212,40 @@ class FactualnessClassifier(Classifier):
         articles = super().get_training_articles_from(directory, w2vm)
         for article in articles:
             print('Mapping %s vectorization to dictionary' % article.path)
+
+            if len(article.words) < 10: continue # TODO new line! get rid of NaN?
+
             vector = article.vector.tolist()[0] + [self.SCALE[article.factualness]]
             for i, element in enumerate(vector[:-1]):
-                dict[str(i)].append(round(element, 3)) # TODO look into rounding
+                dict[str(i)].append(round(element, 1))
+                # TODO look into rounding
+                '''
+                round to 3 -> 0.74, n=298
+                round to 2 -> 0.75, n=298
+
+                round to 2 -> 0.77, n=~2000
+                round to 1 -> 0.76, n=~2000
+                '''
             dict['factualness'].append(vector[-1])
         return dict
 
 def main():
 
     # Use this line for random vector generation (very fast, useful in testing)
-    w2vm = None
+    # w2vm = None
     # Use this line for word2vec vector generation (slow, takes a few minutes)
-    # w2vm = W2VClassifier(in_path='classifiers/google_news')
-    
+    w2vm = W2VClassifier(in_path='../../classifiers/google_news')
+
     # e.g., Create a factualness classifier
     # c = FactualnessClassifier(out_path='./test.model')
-    c = FactualnessClassifier(out_path='./test.model')
-    c.create(directory='articles/', w2vm=w2vm)
-    
+    c = FactualnessClassifier(out_path='./factualness.classifier')
+    # c = BiasClassifier(out_path='./factualness.classifier')
+    c.create(directory='../../ta/', w2vm=w2vm)
+
     # e.g., Load a factualness classifier
     # c = FactualnessClassifier(in_path='./test.model')
     # c.load()
-    
+
     print('Classifier confidence:', c.confidence)
 
-main()
+# main()
