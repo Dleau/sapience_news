@@ -4,7 +4,6 @@ ML project to predict bias and factualness in news articles.
 
 **Interpreter operations**
 
-- importlib.reload(packagename)
 
 ```python
 >>> from w2v import MODEL # will import word2vec model
