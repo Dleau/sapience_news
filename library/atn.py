@@ -78,7 +78,7 @@ class TrainingArticle:
 class BiasDataFrame:
 
     # round to 2, n = 142,232, confidence @ 0.56
-    # no rounting, n = 142,232, confidence @ 
+    # no rounting, n = 142,232, confidence @ 0.56
 
     def __init__(self, tas):
         self.__d = self.__create_from(tas)
@@ -113,17 +113,15 @@ class BiasClassifier:
         dump((model, confidence), open(self.to, 'wb'))
         return model, confidence
         
-def main():
+def main(w2vm, csv_path):
 
     # argv[1] as gnews model
     # argv[2] as master.csv
     
-    w2vm = W2VClassifier(argv[1])
-    tas = AllTheNewsCSV(argv[2]).articles(w2vm)
+    # w2vm = W2VClassifier(argv[1])
+    # tas = AllTheNewsCSV(argv[2]).articles(W2VM)
+    tas = AllTheNewsCSV(csv_path).articles(w2vm)
     bdf = BiasDataFrame(tas)
     bc = BiasClassifier('./test_model', bdf)
     print(bc.confidence)
-    
-
-main()
     
