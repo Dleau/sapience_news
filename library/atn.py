@@ -2,7 +2,7 @@ from sys import argv, maxsize
 from csv import reader, field_size_limit
 from numpy import ndarray, array
 from re import findall
-from pandas import DataFrame
+from pandas import DataFrame, set_option
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn import metrics
@@ -61,13 +61,26 @@ class TrainingArticle:
         self.w2vm = w2vm
         self.words = self.__words()
         
+    # experimental method!
     def vector(self):
         total = ndarray((1, 300), buffer=array([0 for i in range(0, 300)]))
+        s = set() # new
         for word in self.words:
+            if word.string in s: # new
+                continue # new
             vector = word.vector
             if vector is not None: 
+                s.add(word.string) # new
                 total += vector
-        return total / len(self.words)
+        return total / len(s) # new
+                
+#     def vector(self):
+#         total = ndarray((1, 300), buffer=array([0 for i in range(0, 300)]))
+#         for word in self.words:
+#             vector = word.vector
+#             if vector is not None: 
+#                 total += vector
+#         return total / len(self.words)
         
     def __words(self):
         words = []
@@ -103,11 +116,13 @@ class BiasClassifier:
         self.model, self.confidence = self.__create()
         
     def __create(self):
+        # set_option('display.max_rows', None) # to print entire dataframe
         print(self.bdf.df)
         columns = list(self.bdf.df.columns)
         x, y = self.bdf.df[columns[:-1]], self.bdf.df[columns[-1]]
         x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.25, random_state=0)
-        model = RandomForestClassifier(n_estimators=100)
+        # model = RandomForestClassifier(n_estimators=100)
+        model = RandomForestClassifier(n_estimators=1000) # TODO play w/
         model.fit(x_train, y_train)
         confidence = metrics.accuracy_score(y_test, model.predict(x_test))
         dump((model, confidence), open(self.to, 'wb'))
@@ -117,9 +132,9 @@ def main(w2vm, csv_path):
 
     # argv[1] as gnews model
     # argv[2] as master.csv
-    
     # w2vm = W2VClassifier(argv[1])
     # tas = AllTheNewsCSV(argv[2]).articles(W2VM)
+    
     tas = AllTheNewsCSV(csv_path).articles(w2vm)
     bdf = BiasDataFrame(tas)
     bc = BiasClassifier('./test_model', bdf)
