@@ -8,6 +8,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn import metrics
 from pickle import load, dump
 from gensim.models import KeyedVectors
+from math import log
  
 from ml import Word, W2VClassifier
 
@@ -37,6 +38,35 @@ class AllTheNewsCSV:
     def __init__(self, path):
         field_size_limit(maxsize) # Increase maximum field size, CSV is very large
         self.path = path
+        self.n = 0 # number of articles
+        self.hashed_words = self.__hashed_words()
+        
+        
+    def __hashed_words(self): # {'word': 6, 'word2': 4, etc.}
+        # first pass of articles, tally words
+        # the number of articles in which this word appears!
+        hash = {}
+        print('Tallying words of ATN articles from %s' % self.path)
+        with open(self.path, 'r') as master_text:
+            master_csv = reader(master_text, delimiter=',')
+            next(master_csv) # skip the header line
+            for i, e in enumerate(master_csv):
+                self.n += 1 # number of articles
+                # ,id,title,publication,author,date,year,month,url,content
+                _, _, _, _, _, _, _, _, _, content = e
+                ta = TrainingArticle(None, None, None, content, None)
+                seen = set() # set of seen words in this article
+                for string in [word.string for word in ta.words]:
+                    if string in seen: # word was already seen in this article, skip
+                        continue
+                    else: # add the word to the seen set
+                        seen.add(string)
+                    if string in hash:
+                        temp = hash[string]
+                        hash[string] = temp + 1
+                    else:
+                        hash[string] = 1
+        return hash
         
     def articles(self, w2vm):
         print('Labeling ATN articles from %s' % self.path)
@@ -48,6 +78,14 @@ class AllTheNewsCSV:
                 _, _, title, pub, author, _, _, _, _, content = e
                 n, bias, factualness = self.PUBLICATIONS[pub]
                 yield TrainingArticle(n, bias, factualness, content, w2vm)
+                
+    def idf(self, string): # DONE!
+        # get the Inverse Document Frequency of a word string
+        # IDF(t) = log_e(Total number of documents / Number of documents with term t in it).
+        if string in self.hashed_words:
+            return log(self.n, self.hashed_words[string])
+        else:
+            return 0
                 
 class TrainingArticle:
 
@@ -61,26 +99,20 @@ class TrainingArticle:
         self.w2vm = w2vm
         self.words = self.__words()
         
-    # experimental method!
+    def tf(self, string):
+        # get the term frequency of a word string
+        # TF(t) = (Number of times term t appears in a document) / (Total number of terms in the document)
+        pass
+        
+    # experimental method!      
+    # TODO I think this needs idf data          
     def vector(self):
         total = ndarray((1, 300), buffer=array([0 for i in range(0, 300)]))
-        s = set() # new
         for word in self.words:
-            if word.string in s: # new
-                continue # new
             vector = word.vector
             if vector is not None: 
-                s.add(word.string) # new
                 total += vector
-        return total / len(s) # new
-                
-#     def vector(self):
-#         total = ndarray((1, 300), buffer=array([0 for i in range(0, 300)]))
-#         for word in self.words:
-#             vector = word.vector
-#             if vector is not None: 
-#                 total += vector
-#         return total / len(self.words)
+        return total / len(self.words)
         
     def __words(self):
         words = []
@@ -135,8 +167,16 @@ def main(w2vm, csv_path):
     # w2vm = W2VClassifier(argv[1])
     # tas = AllTheNewsCSV(argv[2]).articles(W2VM)
     
-    tas = AllTheNewsCSV(csv_path).articles(w2vm)
-    bdf = BiasDataFrame(tas)
-    bc = BiasClassifier('./test_model', bdf)
-    print(bc.confidence)
+    #tas = AllTheNewsCSV(csv_path).articles(w2vm)
+    #bdf = BiasDataFrame(tas)
+    #bc = BiasClassifier('./test_model', bdf)
+    #print(bc.confidence)
     
+    tas = AllTheNewsCSV(csv_path)
+    r = tas.idf('trump')
+    print(r)
+    
+    # http://www.tfidf.com/
+    
+    
+main(None, '../database/psample.csv')

@@ -19,6 +19,10 @@ class Word:
 
     # Get a word2vec vector for this word, provided the loaded model
     def __get_vector(self, w2vm):
+        # Skip if the w2vm is None (probably in testing)
+        if not w2vm:
+            return None
+    
         # Return the vector if the word is in the vocabulary
         if self.string in w2vm.model:
             return w2vm.model.word_vec(self.string)
