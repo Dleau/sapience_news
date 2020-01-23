@@ -41,7 +41,6 @@ class AllTheNewsCSV:
         self.n = 0 # number of articles
         self.hashed_words = self.__hashed_words()
         
-        
     def __hashed_words(self): # {'word': 6, 'word2': 4, etc.}
         # first pass of articles, tally words
         # the number of articles in which this word appears!
@@ -54,18 +53,18 @@ class AllTheNewsCSV:
                 self.n += 1 # number of articles
                 # ,id,title,publication,author,date,year,month,url,content
                 _, _, _, _, _, _, _, _, _, content = e
-                ta = TrainingArticle(None, None, None, content, None)
+                ta = TrainingArticle(None, None, None, content, None, None)
                 seen = set() # set of seen words in this article
-                for string in [word.string for word in ta.words]:
-                    if string in seen: # word was already seen in this article, skip
+                for key in ta.hashed_words: 
+                    if key in seen: # word was already seen in this article, skip
                         continue
                     else: # add the word to the seen set
-                        seen.add(string)
-                    if string in hash:
-                        temp = hash[string]
-                        hash[string] = temp + 1
+                        seen.add(key)
+                    if key in hash:
+                        temp = hash[key]
+                        hash[key] = temp + 1
                     else:
-                        hash[string] = 1
+                        hash[key] = 1
         return hash
         
     def articles(self, w2vm):
@@ -77,53 +76,69 @@ class AllTheNewsCSV:
                 # ,id,title,publication,author,date,year,month,url,content
                 _, _, title, pub, author, _, _, _, _, content = e
                 n, bias, factualness = self.PUBLICATIONS[pub]
-                yield TrainingArticle(n, bias, factualness, content, w2vm)
+                yield TrainingArticle(n, bias, factualness, content, w2vm, self)
                 
-    def idf(self, string): # DONE!
+    def idf(self, string):
         # get the Inverse Document Frequency of a word string
         # IDF(t) = log_e(Total number of documents / Number of documents with term t in it).
         if string in self.hashed_words:
+            if self.hashed_words[string] == 1:
+                return 1
             return log(self.n, self.hashed_words[string])
         else:
-            return 0
+            return 1
                 
 class TrainingArticle:
 
     WORD_REGEX = "[^a-zA-Z]*([a-zA-Z']+)[^a-zA-Z]*"
 
-    def __init__(self, n, bias, factualness, content, w2vm):
+    def __init__(self, n, bias, factualness, content, w2vm, atn_csv):
         self.n = n
         self.bias = bias
         self.factualness = factualness
         self.content = content
         self.w2vm = w2vm
-        self.words = self.__words()
+        self.atn_csv = atn_csv # allows access to idf data
+        self.hashed_words = self.__hashed_words()
         
     def tf(self, string):
         # get the term frequency of a word string
         # TF(t) = (Number of times term t appears in a document) / (Total number of terms in the document)
-        pass
+        if string in self.hashed_words:
+            return self.hashed_words[string] / len(self.hashed_words)
+        else:
+            return 1
         
     # experimental method!      
-    # TODO I think this needs idf data          
+    # TODO this needs idf and tf data!        
     def vector(self):
+        '''
+        vector transformation here w/ idf and tf data from ta
+        '''
         total = ndarray((1, 300), buffer=array([0 for i in range(0, 300)]))
-        for word in self.words:
-            vector = word.vector
-            if vector is not None: 
-                total += vector
-        return total / len(self.words)
+        for string in self.hashed_words:
+            idf = self.atn_csv.idf(string)
+            tf = self.tf(string)
+            vector = Word(string, self.w2vm).vector
+            if vector is not None:
+                transform = vector * (idf * tf)
+                total += transform
+                #total += vector
+        #return total / len(self.hashed_words)
+        return total / sum(self.hashed_words.values())
         
-    def __words(self):
-        words = []
+    def __hashed_words(self):
+        h = {} # hash of words seen in this article
         for s in findall(self.WORD_REGEX, self.content):
-            words.append(Word(s.lower(), self.w2vm))
-        return words
+            word = Word(s.lower(), self.w2vm)
+            if word.string in h: # if word has been seen
+                temp = h[word.string]
+                h[word.string] = temp + 1 # increment count
+            else: # if word has not been seen
+                h[word.string] = 1
+        return h
         
 class BiasDataFrame:
-
-    # round to 2, n = 142,232, confidence @ 0.56
-    # no rounting, n = 142,232, confidence @ 0.56
 
     def __init__(self, tas):
         self.__d = self.__create_from(tas)
@@ -132,16 +147,34 @@ class BiasDataFrame:
     def __create_from(self, tas): # list of training articles
         d = {**{str(i): [] for i in range(0, 300)}, **{'bias': []}}
         for i, ta in enumerate(tas):
-            if len(ta.words) < 10: continue # skip articles less than n words
+            if len(ta.hashed_words) < 10: continue # skip articles less than n words
             print('Examining training article %d' % (i + 1), end='\r')
-            vector = ta.vector().tolist()[0] + [ta.bias]
+            vector = ta.vector().tolist()[0] + [ta.bias]            
             for i, element in enumerate(vector[:-1]):
                 # d[str(i)].append(round(element, 2)) # TODO play with rounding
-                d[str(i)].append(element)
+                d[str(i)].append(element) # TODO play with rounding
             d['bias'].append(vector[-1])
         return d
         
-class BiasClassifier:
+class FactualnessDataFrame:
+
+    def __init__(self, tas):
+        self.__d = self.__create_from(tas)
+        self.df = DataFrame(self.__d, columns=list(self.__d.keys()))
+        
+    def __create_from(self, tas): # list of training articles
+        d = {**{str(i): [] for i in range(0, 300)}, **{'factualness': []}}
+        for i, ta in enumerate(tas):
+            if len(ta.hashed_words) < 10: continue # skip articles less than n words
+            print('Examining training article %d' % (i + 1), end='\r')
+            vector = ta.vector().tolist()[0] + [ta.factualness]            
+            for i, element in enumerate(vector[:-1]):
+                # d[str(i)].append(round(element, 2)) # TODO play with rounding
+                d[str(i)].append(element) # TODO play with rounding
+            d['factualness'].append(vector[-1])
+        return d
+        
+class NewsClassifier:
 
     def __init__(self, to, bdf): # BiasDataFrame
         self.to, self.bdf = to, bdf
@@ -154,7 +187,7 @@ class BiasClassifier:
         x, y = self.bdf.df[columns[:-1]], self.bdf.df[columns[-1]]
         x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.25, random_state=0)
         # model = RandomForestClassifier(n_estimators=100)
-        model = RandomForestClassifier(n_estimators=1000) # TODO play w/
+        model = RandomForestClassifier(n_estimators=100) # TODO play w/
         model.fit(x_train, y_train)
         confidence = metrics.accuracy_score(y_test, model.predict(x_test))
         dump((model, confidence), open(self.to, 'wb'))
@@ -167,16 +200,15 @@ def main(w2vm, csv_path):
     # w2vm = W2VClassifier(argv[1])
     # tas = AllTheNewsCSV(argv[2]).articles(W2VM)
     
-    #tas = AllTheNewsCSV(csv_path).articles(w2vm)
-    #bdf = BiasDataFrame(tas)
-    #bc = BiasClassifier('./test_model', bdf)
-    #print(bc.confidence)
+    tas = AllTheNewsCSV(csv_path).articles(w2vm)
     
-    tas = AllTheNewsCSV(csv_path)
-    r = tas.idf('trump')
-    print(r)
+    #bdf = BiasDataFrame(tas)
+    fdf = FactualnessDataFrame(tas)
+    
+    bc = NewsClassifier('./test_model', fdf)
+    print(bc.confidence)
     
     # http://www.tfidf.com/
     
     
-main(None, '../database/psample.csv')
+#main(None, '../database/psample.csv')
