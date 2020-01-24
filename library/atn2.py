@@ -12,7 +12,7 @@ from math import log
  
 class AllTheNewsCSV:
     
-    PUBLICATIONS = {
+    '''PUBLICATIONS = {
         # source: (n, bias, factualness)
         # bias: extreme left, left, left center, least biased, right center, right, extreme right
         # factualness: very low, low, mixed, mostly factual, high, very high
@@ -31,6 +31,39 @@ class AllTheNewsCSV:
         'Talking Points Memo': (12, 1, 3), # left, mostly factual
         'Vox': (13, 1, 3), # left, mostly factual
         'Washington Post': (14, 2, 4) # left center, high
+    }'''
+    
+    '''
+    Experimental!
+    0 for factualness < mostly factual
+    1 for factualness >= mostly factual
+    
+    bias...
+    0 for left
+    1 for least
+    2 for right
+    
+    values may not be correct! in testing stage
+    '''
+    PUBLICATIONS = { 
+        # source: (n, bias, factualness)
+        # bias: extreme left, left, left center, least biased, right center, right, extreme right
+        # factualness: very low, low, mixed, mostly factual, high, very high
+        'Atlantic': (0, 0, 1), # left center, high
+        'Breitbart': (2, 2, 0), # extreme right, mixed
+        'Business Insider': (0, 2, 1), # left center, high
+        'Buzzfeed News': (0, 2, 0), # left center, mixed
+        'CNN': (0, 0, 1), # left, mostly factual
+        'Fox News': (2, 5, 0), # right, mixed
+        'Guardian': (0, 2, 1), # left center, high
+        'National Review': (2, 5, 1), # right, mostly factual
+        'New York Post': (2, 4, 0), # right center, mixed
+        'New York Times': (0, 2, 1), # left center, high
+        'NPR': (0, 2, 1), # left center, very high
+        'Reuters': (1, 3, 1), # least biased, very high
+        'Talking Points Memo': (0, 1, 1), # left, mostly factual
+        'Vox': (0, 1, 1), # left, mostly factual
+        'Washington Post': (0, 2, 1) # left center, high
     }
     
     def __init__(self, path):
@@ -48,8 +81,8 @@ class AllTheNewsCSV:
                 n, bias, factualness = self.PUBLICATIONS[pub]
                 
                 '''experimental!'''
-                if pub not in set(['Breitbart', 'CNN']):
-                    continue
+                #if pub not in set(['Breitbart', 'CNN']):
+                #    continue
                 '''experimental!'''
                 
                 yield TrainingArticle(n, bias, factualness, content, tfmodel, self)
@@ -137,4 +170,8 @@ def main(tfmodel, csv_path):
     # http://www.tfidf.com/
     
     
+'''
+Breitbart v. Reuters for factualness, 003, 90%
+Brietbart v. CNN for bias, 003, 61%?
+'''
 #main(None, '../database/psample.csv')
