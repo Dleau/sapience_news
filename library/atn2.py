@@ -12,7 +12,7 @@ from math import log
  
 class AllTheNewsCSV:
     
-    '''PUBLICATIONS = {
+    PUBLICATIONS = {
         # source: (n, bias, factualness)
         # bias: extreme left, left, left center, least biased, right center, right, extreme right
         # factualness: very low, low, mixed, mostly factual, high, very high
@@ -31,7 +31,7 @@ class AllTheNewsCSV:
         'Talking Points Memo': (12, 1, 3), # left, mostly factual
         'Vox': (13, 1, 3), # left, mostly factual
         'Washington Post': (14, 2, 4) # left center, high
-    }'''
+    }
     
     '''
     Experimental!
@@ -45,7 +45,7 @@ class AllTheNewsCSV:
     
     values may not be correct! in testing stage
     '''
-    PUBLICATIONS = { 
+    '''PUBLICATIONS = { 
         # source: (n, bias, factualness)
         # bias: extreme left, left, left center, least biased, right center, right, extreme right
         # factualness: very low, low, mixed, mostly factual, high, very high
@@ -64,7 +64,7 @@ class AllTheNewsCSV:
         'Talking Points Memo': (0, 1, 1), # left, mostly factual
         'Vox': (0, 1, 1), # left, mostly factual
         'Washington Post': (0, 2, 1) # left center, high
-    }
+    }'''
     
     def __init__(self, path):
         field_size_limit(maxsize) # Increase maximum field size, CSV is very large
@@ -161,10 +161,10 @@ def main(tfmodel, csv_path):
     
     tas = AllTheNewsCSV(csv_path).articles(tfmodel)
     
-    frame = BiasDataFrame(tas)
-    #frame = FactualnessDataFrame(tas)
+    #frame = BiasDataFrame(tas)
+    frame = FactualnessDataFrame(tas)
     
-    bc = NewsClassifier('./test_model', frame)
+    bc = NewsClassifier('./X_fact_model', frame)
     print(bc.confidence)
     
     # http://www.tfidf.com/
